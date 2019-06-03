@@ -1,0 +1,775 @@
+<!DOCTYPE html><html><head><title>Bluetooth Low Energy Scanning and Advertising</title>
+
+<!-- START PRE -->
+<link rel="stylesheet" href="../../../web_support/strapdown/v/0.2/fonts/ubuntu-regular-woff.css">
+<link rel="stylesheet" href="../../../web_support/strapdown/v/0.2/fonts/glyphicons-halflings-regular.css">
+<link rel="stylesheet" href="../../../web_support/strapdown/v/0.2/themes/united2.min.css">
+<link rel="stylesheet" href="../../../web_support/strapdown/v/0.2/themes/bootstrap-responsive.min.css">
+<link rel="stylesheet" href="../../../web_support/strapdown/v/0.2/strapdown.css">
+<link rel="shortcut icon" type="image/x-icon" href="../../../.metadata/favicon.ico">
+<!-- END PRE -->
+
+</head><body style=""><div class="container"><nav class="navbar navbar-default navbar-static-top"><div class="container-fluid"> <div class="navbar-header">  <div id="headline" class="navbar-brand">Bluetooth Low Energy Scanning and Advertising</div> </div> </div></nav><div class="container"><div class="row row-offcanvas row-offcanvas-left"><div class="col-xs-12 col-sm-9" id="content"><h1 class="body-heading" id="introduction">Introduction<a class="anchor-link glyphicon glyphicon-link" aria-hidden="true" href="#introduction"></a></h1><p>This workshop is a detailed description of how to use the advertising and scanning features of the TI BLE-Stack. All tasks in this lab session are targeted to be completed within a 2-4 hour time frame. You should have an intermediate level of knowledge of the C programming language as well as experience with embedded software development to be able to complete the tasks.</p>
+<p>The first section describes the advertising and scanning functions, and the subsequent tasks will explore the wireless BLE interface and how to make some small changes to the BLE application.</p>
+<p>For the tasks in this module, a pair of evaluation kits (CC2640R2 LaunchPad) running a TI application (simple_central or simple_peripheral) is required.</p>
+<p>It is recommended to read the <a href="http://dev.ti.com/tirex/#/?link=Software%2FSimpleLink%20CC2640R2%20SDK%2FDocuments%2FBLE-Stack%2FBLE-Stack%20User's%20Guide">TI BLE-Stack User's Guide</a> alongside this lab for details and further information.
+Some references will also be made to this document as well as the <a href="https://www.bluetooth.org/DocMan/handlers/DownloadDoc.ashx?doc_id=286439">Bluetooth Core Spec V4.2</a> which specifies how BLE devices should operate and communicate with other devices.</p>
+<h1 class="body-heading" id="prerequisites">Prerequisites<a class="anchor-link glyphicon glyphicon-link" aria-hidden="true" href="#prerequisites"></a></h1><h3 class="body-heading" id="completed-material">Completed material<a class="anchor-link glyphicon glyphicon-link" aria-hidden="true" href="#completed-material"></a></h3><ul>
+<li><a href="../ble_01_basic/ble_01_basic.html">BLE Fundamentals</a> SimpleLink Academy Lab Module</li>
+</ul>
+<h3 class="body-heading" id="software-for-desktop-development">Software for desktop development<a class="anchor-link glyphicon glyphicon-link" aria-hidden="true" href="#software-for-desktop-development"></a></h3><ul>
+<li><a href="http://processors.wiki.ti.com/index.php/Download_CCS">CCS 9.0+</a> or IAR 8.32.2+</li>
+<li><a href="http://www.ti.com/tool/download/SIMPLELINK-CC2640R2-SDK">SimpleLink™ CC2640R2 SDK</a></li>
+</ul>
+<h3 class="body-heading" id="hardware">Hardware<a class="anchor-link glyphicon glyphicon-link" aria-hidden="true" href="#hardware"></a></h3><p>This module requires the following kits:</p>
+<ul>
+<li>2x <a href="http://www.ti.com/tool/launchxl-cc2640r2">CC2640R2-LAUNCHXL</a></li>
+</ul>
+<h3 class="body-heading" id="recommended-reading">Recommended reading<a class="anchor-link glyphicon glyphicon-link" aria-hidden="true" href="#recommended-reading"></a></h3><p>These chapters in the <a href="http://dev.ti.com/tirex/#/?link=Software%2FSimpleLink%20CC2640R2%20SDK%2FDocuments%2FBLE-Stack%2FBLE-Stack%20User's%20Guide">TI BLE-Stack User's Guide</a></p>
+<ul>
+<li>Getting Started</li>
+<li>The CC2640R2F SDK Platform</li>
+<li>Developing a Bluetooth low energy Application</li>
+</ul>
+<h1 class="body-heading" id="getting-started-ndash-desktop">Getting started – Desktop<a class="anchor-link glyphicon glyphicon-link" aria-hidden="true" href="#getting-started-ndash-desktop"></a></h1><h2 class="body-heading" id="install-the-software">Install the software<a class="anchor-link glyphicon glyphicon-link" aria-hidden="true" href="#install-the-software"></a></h2><ol>
+<li>Run the SimpleLink CC2640R2 SDK installer: <code>simplelink_cc2640r2_sdk_3_10_00_xx.exe</code>.</li>
+</ol>
+<p>This gives you:</p>
+<ul>
+<li>The SDK with TI-RTOS included at <code>&lt;SIMPLELINK_CC2640R2_SDK_INSTALL_DIR&gt;</code> which defaults to <code>C:\ti\simplelink_cc2640r2_sdk_3_10_00_xx</code>.</li>
+</ul>
+<h2 class="body-heading" id="modify-load-the-software">Modify/Load the software<a class="anchor-link glyphicon glyphicon-link" aria-hidden="true" href="#modify-load-the-software"></a></h2><ul>
+<li>Load Board #1 with simple_central project that supports the scanning procedure found here: <code>&lt;SIMPLELINK_CC2640R2_SDK_INSTALL_DIR&gt;\examples\rtos\CC2640R2_LAUNCHXL\blestack\simple_central\tirtos</code></li>
+<li>Load Board #2 with simple_peripheral project that supports the advertising procedure found here: <code>&lt;SIMPLELINK_CC2640R2_SDK_INSTALL_DIR&gt;\examples\rtos\CC2640R2_LAUNCHXL\blestack\simple_peripheral\tirtos</code></li>
+</ul>
+<p>Note: Be sure to build/load both the stack and app projects.</p>
+<p>The following tasks will show how to modify the above projects to showcase scanning and advertising features in the respective projects.
+The user will have to modify these existing projects in the SimpleLink CC2640R2 SDK to experiment with the tasks.</p>
+<h1 class="body-heading" id="background">Background<a class="anchor-link glyphicon glyphicon-link" aria-hidden="true" href="#background"></a></h1><p>The Generic Access Profile (GAP) is a top layer in the host protocol stack that defines how BLE devices behave in standby and connecting states to maintain interoperability with peer devices.
+GAP also describes discovery, link establishment and security procedures. The GAP APIs can be called from the application layer.</p>
+<ul>
+<li>You can read about GAP in the <a href="http://dev.ti.com/tirex/#/?link=Software%2FSimpleLink%20CC2640R2%20SDK%2FDocuments%2FBLE-Stack%2FBLE-Stack%20User's%20Guide">TI BLE-Stack User's Guide</a>
+and proceed to <strong>Developing a Bluetooth Low Energy Application → The Stack →
+Generic Access Profile (GAP)</strong></li>
+</ul>
+<p>The following figure visually shows the GAP layer in relation to other layers in the software hierarchy:
+</p><div class="modal-pop" style="cursor:zoom-in;"><img src="resources/bt_gap_layers_figure.png" alt="Imported" class="img-responsive"></div><p></p>
+<p>The following GAP roles are defined in the
+<a href="https://www.bluetooth.com/specifications/bluetooth-core-specification">Bluetooth core specification</a>
+and described in <code>gap.h</code>:</p>
+<table class="table table-striped table-bordered">
+<thead>
+<tr>
+<th>GAP Role</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>BROADCASTER</td>
+<td>A device that only sends advertising events.</td>
+</tr>
+<tr>
+<td>OBSERVER</td>
+<td>A device that only receives advertising events.</td>
+</tr>
+<tr>
+<td>PERIPHERAL</td>
+<td>A device that accepts the establishment of an LE physical link using the connection establishment procedure.</td>
+</tr>
+<tr>
+<td>CENTRAL</td>
+<td>A device that supports the Central role initiates the establishment of a physical connection.</td>
+</tr>
+</tbody>
+</table>
+<p>The GAP layer API gives very fine-grained control of the device behavior. To remove some complexity, the sample applications use an interface called <code>GAPRole</code> which provide a subset of streamlined APIs for each GAP role such as Central, Observer and Peripheral.
+Usually a project implements one of these profile roles, however multiple GAP roles may be supported at the same time. A GAP profile is initialized by passing in the desired GAP role(s) as a parameter to the <code>GAP_DeviceInit()</code> function.</p>
+<p>The GAPRole APIs provide high level functions while the GAP APIs are used to configure the low level states that the BLE devices operate in.
+The project provides GAPRole interface in a file under the project <strong>Profiles</strong> folder along with helper functions and parameters. For example, for a peripheral project, <code>peripheral.c</code> provides
+APIs for the application to accept establishment of connections and advertising procedures. The GAPRole also passes events to the application via callbacks.</p>
+<div class="bs-callout bs-callout-default "><h4><span class="glyphicon glyphicon-question-sign gi-2x" style="vertical-align: middle; margin-right: 0.2em;"></span><span style="vertical-align: middle;">Which GAP Roles are connectionless (do not support the connected state)?
+</span></h4>
+<p>Choose the correct answer(s).</p>
+<div class="quiz-toolbar"><div>
+<input type="checkbox" id="q1.0" class="answer-right" name="quiz-1" style="display:none;"><label for="q1.0" class="quiz-label " data-toggle="tooltip" data-html="true" data-container="body" data-placement="auto top" data-trigger="click" title="" data-original-title="&lt;p&gt; Correct! This is one of the correct answers.&lt;/p&gt;
+">Broadcaster </label>
+<input type="checkbox" id="q1.1" class="answer-wrong" name="quiz-1" style="display:none;"><label for="q1.1" class="quiz-label ">Central</label>
+<input type="checkbox" id="q1.2" class="answer-right" name="quiz-1" style="display:none;"><label for="q1.2" class="quiz-label " data-toggle="tooltip" data-html="true" data-container="body" data-placement="auto top" data-trigger="click" title="" data-original-title="&lt;p&gt; Correct! This is one of the correct answers.&lt;/p&gt;
+">Observer </label>
+<input type="checkbox" id="q1.3" class="answer-wrong" name="quiz-1" style="display:none;"><label for="q1.3" class="quiz-label ">Peripheral</label>
+</div></div>
+</div>
+<h1 class="body-heading" id="advertising">Advertising<a class="anchor-link glyphicon glyphicon-link" aria-hidden="true" href="#advertising"></a></h1><h2 class="body-heading" id="advertising-basics">Advertising Basics<a class="anchor-link glyphicon glyphicon-link" aria-hidden="true" href="#advertising-basics"></a></h2><p>Bluetooth devices send advertising packets (<span class="hinted" data-placement="auto top" data-toggle="tooltip" data-html="true" data-original-title="&lt;p&gt;Protocol Data Units&lt;/p&gt;
+">PDUs</span>) to broadcast data, and to allow other devices (scanners) to find and connect to them. The advertising data consists up to 31 bytes of user configurable data.
+An additional 31 bytes can be sent as a <em>scan response</em> to a scan request. There are four different types of advertising packets listed in the table below.</p>
+<table class="table table-striped table-bordered">
+<thead>
+<tr>
+<th>Advertising PDU</th>
+<th>Description</th>
+<th>Max Adv Data Len</th>
+<th>Max Scan Res Len</th>
+<th>Allow Connect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ADV_IND</td>
+<td>Used to send connectable undirected advertisement</td>
+<td>31 bytes</td>
+<td>31 bytes</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>ADV_DIRECT_IND</td>
+<td>Used to send connectable directed advertisement</td>
+<td><span class="hinted" data-placement="auto top" data-toggle="tooltip" data-html="true" data-original-title="&lt;p&gt;Directed advertisement only includes the 6-byte device address of the initiating device&lt;/p&gt;
+">N/A</span></td>
+<td>N/A</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>ADV_SCAN_IND</td>
+<td>Used to send scannable undirected advertisement</td>
+<td>31 bytes</td>
+<td>31 bytes</td>
+<td>No</td>
+</tr>
+<tr>
+<td>ADV_NONCONN_IND</td>
+<td>Used to send non-connectable undirected advertisement</td>
+<td>31 bytes</td>
+<td>N/A</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<p>The above table shows that all the advertising modes use the 31 payload bytes for advertisement data except <em>directed advertising</em>, which uses the 6-byte device address of the initiating device. Directed advertisements have an intended receiving device (scanner), while undirected advertisements do not have a specific intended receiver. In addition, all the advertising types enable sending a scan response, except for the <em>directed</em> and <em>non-connectable advertising</em>.
+See BT Core Spec V4.2 Vol. 6, Part B, Section 4.4 for more information.</p>
+<div class="bs-callout bs-callout-default "><h4><span class="glyphicon glyphicon-question-sign gi-2x" style="vertical-align: middle; margin-right: 0.2em;"></span><span style="vertical-align: middle;">Which type of advertising does not receive (RX) any packets (is transmit (TX) only)?
+</span></h4>
+<p>Choose the correct answer(s).</p>
+<div class="quiz-toolbar"><div>
+<input type="checkbox" id="q2.4" class="answer-wrong" name="quiz-2" style="display:none;"><label for="q2.4" class="quiz-label ">connectable undirected</label>
+<input type="checkbox" id="q2.5" class="answer-wrong" name="quiz-2" style="display:none;"><label for="q2.5" class="quiz-label " data-toggle="tooltip" data-html="true" data-container="body" data-placement="auto top" data-trigger="click" title="" data-original-title="&lt;p&gt; Hint: Connectable directed advertisers receive connection requests.&lt;/p&gt;
+">connectable directed </label>
+<input type="checkbox" id="q2.6" class="answer-wrong" name="quiz-2" style="display:none;"><label for="q2.6" class="quiz-label ">scannable undirected</label>
+<input type="checkbox" id="q2.7" class="answer-right" name="quiz-2" style="display:none;"><label for="q2.7" class="quiz-label quiz-float" data-toggle="tooltip" data-html="true" data-container="body" data-placement="auto top" data-trigger="click" title="" data-original-title="&lt;p&gt; Correct! Non-connectable ADV does not receive scan requests or connection requests.&lt;/p&gt;
+">non-connectable undirected </label>
+</div></div>
+</div>
+<p>The following table summarizes the parameters that can be configured for advertising.</p>
+<table class="table table-striped table-bordered">
+<thead>
+<tr>
+<th>Advertising Parameter</th>
+<th>Description</th>
+<th>Range</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Advertising Interval</td>
+<td>Time between the start of two consecutive advertising events</td>
+<td>20ms to 10.24s</td>
+</tr>
+<tr>
+<td>Advertising Types</td>
+<td>Different PDUs are sent for different <span class="hinted" data-placement="auto top" data-toggle="tooltip" data-html="true" data-original-title="&lt;p&gt;See Vol 6, Part B, section 4.4.2.3 of the BT 4.2 Core Spec for more info on different event type&lt;/p&gt;
+">types of advertising</span></td>
+<td>Connectable undirected, connectable directed, scannable undirected, non-connectable</td>
+</tr>
+<tr>
+<td>Advertising Channels</td>
+<td>Advertising packets are sent on three channels</td>
+<td>Different combinations of channels 37, 38 and 39.</td>
+</tr>
+</tbody>
+</table>
+<p>The device advertises on three <span class="hinted" data-placement="auto top" data-toggle="tooltip" data-html="true" data-original-title="&lt;p&gt;channel = frequency at which the data is sent&lt;/p&gt;
+">channels</span>. The advertising channels are channel 37 (2402 MHz), channel 38 (2426 MHz), and channel 39 (2480 MHz). These channels are selected to minimize interference from Wi-Fi channels.
+The following diagram shows an advertising event when advertising on all three channels.
+</p><div class="modal-pop" style="cursor:zoom-in;"><img src="resources/adv_channels_diag.png" alt="Imported" class="img-responsive"></div><p></p>
+<p>Note that the same data (<code>ADV_IND</code>) is sent on all three channels. The device can be modified to advertise only on selected channels. Advertising on fewer channels will save power, however using more channels will increase the likelihood of a peer device receiving the packet.</p>
+<p>The following tasks will demonstrate advertising using the simple_peripheral_cc2640r2lp_app project.</p>
+<h1 class="body-heading" id="advertising-task-1-ndash-change-advertising-parameters">Advertising Task 1 – Change Advertising Parameters<a class="anchor-link glyphicon glyphicon-link" aria-hidden="true" href="#advertising-task-1-ndash-change-advertising-parameters"></a></h1><p>In this task, we will configure the device to advertise on one channel every 200ms using the simple_peripheral project. If you haven't loaded the simple_peripheral project into your device yet - do it now! Build the stack library project first, then build and flash the app project.</p>
+<p>The following API will set up the GAPRole to advertise on channel 37 in simple_peripheral.c:</p>
+<div style="display:inline-block"><div style="display:block"><button type="button" class="btn btn-xs btn-warning float-right select-text" style="margin: 0; position: relative;" onclick="SelectText('codeBlock_1')">Select text</button></div><div class="pre-container"><pre><code id="codeBlock_1" class="lang-c hljs cpp"><span class="hljs-comment">// === SOLUTION [Add/change GAP advertising params] ===</span>
+<span class="hljs-comment">// Advertising interval when device is discoverable (units of 625us, 320=200ms)</span>
+<span class="hljs-preprocessor">#<span class="hljs-keyword">define</span> DEFAULT_ADVERTISING_INTERVAL          320</span>
+<span class="hljs-preprocessor">#<span class="hljs-keyword">define</span> DEFAULT_ADVERTISING_CHANNEL_MAP       GAP_ADVCHAN_37</span>
+<span class="hljs-comment">// ==== END SOLUTION ====</span>
+
+<span class="hljs-comment">// ...</span>
+<span class="hljs-function"><span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">SimplePeripheral_init</span><span class="hljs-params">(<span class="hljs-keyword">void</span>)</span>
+</span>{
+  <span class="hljs-comment">// ...</span>
+  <span class="hljs-comment">// Set advertising interval.</span>
+  {
+    <span class="hljs-keyword">uint16_t</span> advInt = DEFAULT_ADVERTISING_INTERVAL;
+
+    GAP_SetParamValue(TGAP_LIM_DISC_ADV_INT_MIN, advInt);
+    GAP_SetParamValue(TGAP_LIM_DISC_ADV_INT_MAX, advInt);
+    GAP_SetParamValue(TGAP_GEN_DISC_ADV_INT_MIN, advInt);
+    GAP_SetParamValue(TGAP_GEN_DISC_ADV_INT_MAX, advInt);
+  }
+  <span class="hljs-comment">// ...</span>
+
+  <span class="hljs-comment">// === SOLUTION [Configure advertising channel map] ===</span>
+  <span class="hljs-comment">// Configure advertising channel map.</span>
+  <span class="hljs-keyword">uint8_t</span> advChannelMap = DEFAULT_ADVERTISING_CHANNEL_MAP;
+  GAPRole_SetParameter(GAPROLE_ADV_CHANNEL_MAP, <span class="hljs-keyword">sizeof</span>(<span class="hljs-keyword">uint8_t</span>), &amp;advChannelMap);
+<span class="hljs-comment">// ==== END SOLUTION ====</span>
+
+<span class="hljs-comment">// ...</span>
+</code></pre><span class="code-title"><p><strong>simple_peripheral.c :: SimplePeripheral_init()</strong> – Configuring advertising interval and advertising channel</p>
+</span></div></div>
+<p>The default value of the advertising channel map is set to <code>GAP_ADVCHAN_ALL</code>;
+advertise on all three channels.
+The user can configure the advertising interval based on the application use case. For example,
+if a door lock is advertising at a slower interval, it will take longer for the peer device
+to connect to the door lock which would adversely affect user experience.</p>
+<div class="bs-callout bs-callout-default "><h4><span class="glyphicon glyphicon-question-sign gi-2x" style="vertical-align: middle; margin-right: 0.2em;"></span><span style="vertical-align: middle;">Which advertising interval is best suited for a door lock application powered by battery?
+</span></h4>
+<p>Choose the correct answer.</p>
+<div class="quiz-toolbar"><div>
+<input type="checkbox" id="q3.8" class="answer-wrong" name="quiz-3" style="display:none;"><label for="q3.8" class="quiz-label " data-toggle="tooltip" data-html="true" data-container="body" data-placement="auto top" data-trigger="click" title="" data-original-title="&lt;p&gt; Hint: Latency would be too high, would take longer to connect on average.&lt;/p&gt;
+">10 s </label>
+<input type="checkbox" id="q3.9" class="answer-right" name="quiz-3" style="display:none;"><label for="q3.9" class="quiz-label " data-toggle="tooltip" data-html="true" data-container="body" data-placement="auto top" data-trigger="click" title="" data-original-title="&lt;p&gt; Correct: This can be a suitable tradeoff between power saving and connection latency.&lt;/p&gt;
+">1 s </label>
+<input type="checkbox" id="q3.10" class="answer-wrong" name="quiz-3" style="display:none;"><label for="q3.10" class="quiz-label " data-toggle="tooltip" data-html="true" data-container="body" data-placement="auto top" data-trigger="click" title="" data-original-title="&lt;p&gt; Hint: Would draw too much current for a battery powered application.&lt;/p&gt;
+">7.5 ms </label>
+</div></div>
+</div>
+<div class="bs-callout bs-callout-default "><h4><span class="glyphicon glyphicon-question-sign gi-2x" style="vertical-align: middle; margin-right: 0.2em;"></span><span style="vertical-align: middle;">Which advertising interval is best suited for a temperature sensor application powered by battery?
+</span></h4>
+<p>Choose the correct answer.</p>
+<div class="quiz-toolbar"><div>
+<input type="checkbox" id="q4.11" class="answer-right" name="quiz-4" style="display:none;"><label for="q4.11" class="quiz-label ">10 s</label>
+<input type="checkbox" id="q4.12" class="answer-wrong" name="quiz-4" style="display:none;"><label for="q4.12" class="quiz-label " data-toggle="tooltip" data-html="true" data-container="body" data-placement="auto top" data-trigger="click" title="" data-original-title="&lt;p&gt; Hint: Unnecessary use of power as temperature does not change that frequently.&lt;/p&gt;
+">1 s </label>
+<input type="checkbox" id="q4.13" class="answer-wrong" name="quiz-4" style="display:none;"><label for="q4.13" class="quiz-label " data-toggle="tooltip" data-html="true" data-container="body" data-placement="auto top" data-trigger="click" title="" data-original-title="&lt;p&gt; Hint: Would draw too much current for a battery powered application.&lt;/p&gt;
+">7.5 ms </label>
+</div></div>
+</div>
+<div class="panel-group">
+  <div class="panel panel-success">
+    <div class="panel-heading">
+      <h4 class="panel-title">
+        <a class="accordion-toggle collapsed" data-toggle="collapse" href="#expandable_-limited-advertising-"><p> Limited Advertising</p>
+</a>
+      </h4>
+    </div>
+    <div id="expandable_-limited-advertising-" class="panel-collapse collapse">
+      <div class="panel-body"><p>Limited advertising can be used to conserve power by advertising for a limited amount of time. General advertisers will continue advertising indefinitely, while limited advertisers advertise for about 30 seconds, enough time for any devices trying to scan and/or connect.
+To use limited advertising, in simple_peripheral.c, set <code>DEFAULT_DISCOVERABLE_MODE</code> to <code>GAP_ADTYPE_FLAGS_LIMITED</code> inside the <code>advertData</code> array. To do this, modify the following define. This will configure the device to use limited advertising mode:</p>
+<div style="display:inline-block"><div style="display:block"><button type="button" class="btn btn-xs btn-warning float-right select-text" style="margin: 0; position: relative;" onclick="SelectText('codeBlock_2')">Select text</button></div><div class="pre-container"><pre><code id="codeBlock_2" class="lang-c hljs cpp"><span class="hljs-comment">// Limited discoverable mode advertises for 30.72s, and then stops</span>
+<span class="hljs-comment">// General discoverable mode advertises indefinitely</span>
+<span class="hljs-preprocessor">#<span class="hljs-keyword">define</span> DEFAULT_DISCOVERABLE_MODE             GAP_ADTYPE_FLAGS_LIMITED</span>
+</code></pre><span class="code-title"><p>Enable limited advertising</p>
+</span></div></div>
+<p>Limited advertising can be used to further classify/filter devices. For example, devices that are <em>scanning</em> in limited discovery mode can only receive advertisement data from limited advertising devices.
+See BT Core Spec V4.2 Vol. 3, Part C, Section 9.2.5 for more information on the limited discovery procedure.</p>
+</div>
+    </div>
+  </div>
+</div><p>The parameters set in <code>SimplePeripheral_init()</code> are used when the advertising procedure is started. Advertising can be started many ways by the application. Look at <code>peripheral.c</code> under the Profiles folder to see all the ways advertising <span class="hinted" data-placement="auto top" data-toggle="tooltip" data-html="true" data-original-title="&lt;p&gt;Hint: Search for START_ADVERTISING_EVT&lt;/p&gt;
+">can be started</span>. One way to start advertising is used initially in simple_peripheral.c:</p>
+<div style="display:inline-block"><div style="display:block"><button type="button" class="btn btn-xs btn-warning float-right select-text" style="margin: 0; position: relative;" onclick="SelectText('codeBlock_3')">Select text</button></div><div class="pre-container"><pre><code id="codeBlock_3" class="lang-c hljs cpp"><span class="hljs-keyword">uint8_t</span> initialAdvertEnable = TRUE;
+GAPRole_SetParameter(GAPROLE_ADVERT_ENABLED, <span class="hljs-keyword">sizeof</span>(<span class="hljs-keyword">uint8_t</span>), &amp;initialAdvertEnable);
+</code></pre><span class="code-title"><p>Starting the advertising procedure</p>
+</span></div></div>
+<h1 class="body-heading" id="advertising-task-2-ndash-change-the-advertising-data">Advertising Task 2 – Change the Advertising Data<a class="anchor-link glyphicon glyphicon-link" aria-hidden="true" href="#advertising-task-2-ndash-change-the-advertising-data"></a></h1><p>In this task, we will change the advertisement data periodically (in this case,
+every 5 seconds). In order to make sure our advertising data successfully
+updates, we will toggle an LED.</p>
+<p>First, add the following code to the Local Variables section of
+simple_peripheral.c:</p>
+<div style="display:inline-block"><div style="display:block"><button type="button" class="btn btn-xs btn-warning float-right select-text" style="margin: 0; position: relative;" onclick="SelectText('codeBlock_4')">Select text</button></div><div class="pre-container"><pre><code id="codeBlock_4" class="lang-c hljs cpp"><span class="hljs-comment">// GAP GATT Attributes</span>
+<span class="hljs-keyword">static</span> <span class="hljs-keyword">uint8_t</span> attDeviceName[GAP_DEVICE_NAME_LEN] = <span class="hljs-string">"Simple Peripheral"</span>;
+
+<span class="hljs-comment">// === SOLUTION [Add LED Support] ===</span>
+<span class="hljs-comment">/* Pin driver handles */</span>
+<span class="hljs-keyword">static</span> PIN_Handle ledPinHandle;
+
+<span class="hljs-comment">/* Global memory storage for a PIN_Config table */</span>
+<span class="hljs-keyword">static</span> PIN_State ledPinState;
+
+<span class="hljs-comment">/*
+ * Initial LED pin configuration table
+ *   - LEDs Board_LED0 is off.
+ */</span>
+PIN_Config ledPinTable[] = {
+  Board_LED0 | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MAX,
+  PIN_TERMINATE
+};
+<span class="hljs-comment">// ==== END SOLUTION ====</span>
+
+<span class="hljs-comment">/*********************************************************************
+</span></code></pre><span class="code-title"><p><strong>simple_peripheral.c :: Local Variables</strong> – Add LED Configuration</p>
+</span></div></div>
+<p>To use the LED, the PIN driver must be opened. This can be done at the end of
+<code>SimplePeripheral_init()</code>:</p>
+<div style="display:inline-block"><div style="display:block"><button type="button" class="btn btn-xs btn-warning float-right select-text" style="margin: 0; position: relative;" onclick="SelectText('codeBlock_5')">Select text</button></div><div class="pre-container"><pre><code id="codeBlock_5" class="lang-c hljs cpp"><span class="hljs-preprocessor">#<span class="hljs-keyword">endif</span> <span class="hljs-comment">// !defined (USE_LL_CONN_PARAM_UPDATE)</span></span>
+
+<span class="hljs-comment">// === SOLUTION [Add Open PIN Driver] ===</span>
+  ledPinHandle = PIN_open(&amp;ledPinState, ledPinTable);
+<span class="hljs-comment">// ==== END SOLUTION ====</span>
+
+  Display_print0(dispHandle, <span class="hljs-number">0</span>, <span class="hljs-number">0</span>, <span class="hljs-string">"BLE Peripheral"</span>);
+</code></pre><span class="code-title"><p><strong>simple_peripheral.c :: SimplePeripheral_init()</strong> – Open the PIN Driver</p>
+</span></div></div>
+<p>Next, we will start the clock for our periodic event. <code>simple_peripheral</code>
+already has an event that is called periodically - the <code>SBP_PERIODIC_EVENT</code>. In
+the default simple_peripheral.c, the periodic clock is first started from the
+<code>GAPROLE_CONNECTED</code> state of
+<code>SimplePeripheral_processStateChangeEvt(gaprole_States_t newState)</code>. Since we
+are not expecting to form a connection in this case, we will move the
+call to Util_startClock(&amp;periodicClock); from <code>case GAPROLE_CONNECTED:</code> to
+the end of <code>SimplePeripheral_init</code>:</p>
+<div style="display:inline-block"><div style="display:block"><button type="button" class="btn btn-xs btn-warning float-right select-text" style="margin: 0; position: relative;" onclick="SelectText('codeBlock_6')">Select text</button></div><div class="pre-container"><pre><code id="codeBlock_6" class="lang-c hljs cpp"><span class="hljs-preprocessor">#<span class="hljs-keyword">endif</span> <span class="hljs-comment">// !defined (USE_LL_CONN_PARAM_UPDATE)</span></span>
+
+  ledPinHandle = PIN_open(&amp;ledPinState, ledPinTable);
+
+<span class="hljs-comment">// === SOLUTION [Start Periodic Clock] ===</span>
+  Util_startClock(&amp;periodicClock);
+<span class="hljs-comment">// ==== END SOLUTION ====</span>
+
+  Display_print0(dispHandle, <span class="hljs-number">0</span>, <span class="hljs-number">0</span>, <span class="hljs-string">"BLE Peripheral"</span>);
+</code></pre><span class="code-title"><p><strong>simple_peripheral.c :: SimplePeripheral_init()</strong> – Start Periodic Clock</p>
+</span></div></div>
+<p>The advertisement data can be changed at runtime by changing the contents of the
+<code>advertData[]</code> variable, and updating it by using <code>GAPRole_SetParameter()</code>. To
+make the data easier to work with, we will define a couple symbols in the
+Constants section of <code>simple_peripheral.c</code>:</p>
+<div style="display:inline-block"><div style="display:block"><button type="button" class="btn btn-xs btn-warning float-right select-text" style="margin: 0; position: relative;" onclick="SelectText('codeBlock_7')">Select text</button></div><div class="pre-container"><pre><code id="codeBlock_7" class="lang-c hljs cpp"><span class="hljs-comment">// Bitwise OR of all events to pend on</span>
+<span class="hljs-preprocessor">#<span class="hljs-keyword">define</span> SBP_ALL_EVENTS                        (SBP_ICALL_EVT        | \
+                                               SBP_QUEUE_EVT        | \
+                                               SBP_PERIODIC_EVT)</span>
+
+<span class="hljs-comment">// === SOLUTION [Add Advertising Defines] ===</span>
+<span class="hljs-preprocessor">#<span class="hljs-keyword">define</span> ADV_MAX_LEN 31</span>
+<span class="hljs-preprocessor">#<span class="hljs-keyword">define</span> ADVDATA_MANUF_DATA_IDX 5</span>
+<span class="hljs-comment">// ==== END SOLUTION ====</span>
+
+<span class="hljs-comment">/*********************************************************************
+</span></code></pre><span class="code-title"><p><strong>simple_peripheral.c :: Constants</strong> – Adding advertising defines</p>
+</span></div></div>
+<p>Additionally, we must set the size of <code>advertData[]</code> to <code>ADV_MAX_LEN</code>. Make the following change to the variable declaration:</p>
+<div style="display:inline-block"><div style="display:block"><button type="button" class="btn btn-xs btn-warning float-right select-text" style="margin: 0; position: relative;" onclick="SelectText('codeBlock_8')">Select text</button></div><div class="pre-container"><pre><code id="codeBlock_8" class="lang-c hljs cpp"><span class="hljs-comment">// Advertisement data (max size = 31 bytes, though this is</span>
+<span class="hljs-comment">// best kept short to conserve power while advertising)</span>
+<span class="hljs-keyword">static</span> <span class="hljs-keyword">uint8_t</span> advertData[ADV_MAX_LEN] =
+{
+<span class="hljs-comment">//...</span>
+</code></pre><span class="code-title"><p><strong>simple_peripheral.c ::</strong> –  Set advertData to max size (31 bytes)</p>
+</span></div></div>
+<p>Finally, we will add the following code to the <code>SBP_PERIODIC_EVENT</code> case in
+<code>SimplePeripheral_taskFxn()</code>:</p>
+<div style="display:inline-block"><div style="display:block"><button type="button" class="btn btn-xs btn-warning float-right select-text" style="margin: 0; position: relative;" onclick="SelectText('codeBlock_9')">Select text</button></div><div class="pre-container"><pre><code id="codeBlock_9" class="lang-c hljs cpp">  <span class="hljs-keyword">if</span> (events &amp; SBP_PERIODIC_EVT)
+  {
+
+    Util_startClock(&amp;periodicClock);
+
+<span class="hljs-comment">// === SOLUTION [Change advertising data] ===</span>
+    <span class="hljs-keyword">uint8_t</span> i = <span class="hljs-number">0</span>;
+    bStatus_t status = <span class="hljs-number">0</span>;
+
+    <span class="hljs-keyword">static</span> <span class="hljs-keyword">uint8_t</span> advData = <span class="hljs-number">0</span>;
+
+    advertData[i++] = <span class="hljs-number">0x02</span>;   <span class="hljs-comment">// length of this data</span>
+    advertData[i++] = GAP_ADTYPE_FLAGS;
+    advertData[i++] = DEFAULT_DISCOVERABLE_MODE | GAP_ADTYPE_FLAGS_BREDR_NOT_SUPPORTED;
+
+    <span class="hljs-comment">//Setup up custom user data initially</span>
+    advertData[i++] = ADV_MAX_LEN - i - <span class="hljs-number">1</span>; <span class="hljs-comment">// length of this data</span>
+    advertData[i++] = GAP_ADTYPE_MANUFACTURER_SPECIFIC; <span class="hljs-comment">// length of this data</span>
+
+    <span class="hljs-comment">//populate the remaining with custom ADV data (i.e. 0x00,0x01, 0x02, etc.)</span>
+    <span class="hljs-keyword">for</span>(i = ADVDATA_MANUF_DATA_IDX; i &lt; ADV_MAX_LEN; i++)
+    {
+      advertData[i] = advData++;
+    }
+    status = GAPRole_SetParameter(GAPROLE_ADVERT_DATA, <span class="hljs-keyword">sizeof</span>(advertData), advertData);
+
+    <span class="hljs-keyword">if</span>(status == SUCCESS)
+    {
+      <span class="hljs-comment">//Toggle LED to indicate successful advertising data change</span>
+      PIN_setOutputValue(ledPinHandle, Board_LED0, PIN_getOutputValue(Board_LED0)^<span class="hljs-number">1</span>);
+    }
+<span class="hljs-comment">// ==== END SOLUTION ====</span>
+
+<span class="hljs-comment">// ...</span>
+</code></pre><span class="code-title"><p><strong>simple_peripheral.c :: SimplePeripheral_taskFxn()</strong> – Changing advertising data</p>
+</span></div></div>
+<p><code>advertData[]</code> is defined in the beginning of simple_peripheral.c, but it can be called again to change the advertising data at runtime.</p>
+<p>Note that advertising data should follow a certain format described in BT Core Spec V4.2 Vol. 3, Part C, Ch. 11.
+The different data types that can be used in the advertisement data are further explained in the <a href="https://www.bluetooth.org/DocMan/handlers/DownloadDoc.ashx?doc_id=421047">Core Specification Supplement (CSSv7)</a> along with examples.</p>
+<h1 class="body-heading" id="advertising-task-3-ndash-change-filter-policy">Advertising Task 3 – Change Filter Policy<a class="anchor-link glyphicon glyphicon-link" aria-hidden="true" href="#advertising-task-3-ndash-change-filter-policy"></a></h1><p>Since the advertisement data is broadcasted, any scanning device can pick it up. Furthermore, the scanner can send a scan request to request more data from the advertiser. The advertiser will then send a scan response. However, the advertiser can choose to send the scan response data only to certain devices that are contained in its white list.
+Also, the advertiser can limit which devices can connect to it (to only the devices contained in the white list).</p>
+<p>Use the following code to restrict scan response (and thereby connection) to devices which are added to the white list. Remember to change the <code>bdAddressPeer[]</code> to the BDA of your central device.</p>
+<div style="display:inline-block"><div style="display:block"><button type="button" class="btn btn-xs btn-warning float-right select-text" style="margin: 0; position: relative;" onclick="SelectText('codeBlock_10')">Select text</button></div><div class="pre-container"><pre><code id="codeBlock_10" class="lang-c hljs cpp"><span class="hljs-function"><span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">SimplePeripheral_init</span><span class="hljs-params">(<span class="hljs-keyword">void</span>)</span>
+</span>{
+<span class="hljs-comment">// ...</span>
+<span class="hljs-comment">// === SOLUTION [Change filter policy] ===</span>
+  <span class="hljs-comment">//set ADV filter policy to allow scan and connect request from white list only</span>
+  <span class="hljs-keyword">uint8_t</span> advFilterPolicy = GAP_FILTER_POLICY_WHITE;
+
+  <span class="hljs-comment">//remember to change the values below to the BDA of your central device</span>
+  <span class="hljs-keyword">static</span> uint8 bdAddressPeer[<span class="hljs-number">6</span>] = {<span class="hljs-number">0x00</span>,<span class="hljs-number">0x90</span>,<span class="hljs-number">0x78</span>,<span class="hljs-number">0x56</span>,<span class="hljs-number">0x34</span>,<span class="hljs-number">0x12</span>};
+  HCI_LE_AddWhiteListCmd(ADDRMODE_PUBLIC, bdAddressPeer);
+
+  GAPRole_SetParameter(GAPROLE_ADV_FILTER_POLICY, <span class="hljs-keyword">sizeof</span>(<span class="hljs-keyword">uint8_t</span>), &amp;advFilterPolicy);
+<span class="hljs-comment">// ==== END SOLUTION ====</span>
+
+  <span class="hljs-comment">// Set the GAP Characteristics</span>
+  GGS_SetParameter(GGS_DEVICE_NAME_ATT, GAP_DEVICE_NAME_LEN, attDeviceName);
+<span class="hljs-comment">// ...</span>
+</code></pre><span class="code-title"><p><strong>simple_peripheral.c :: SimplePeripheral_init()</strong> – Configuring advertising filter policy</p>
+</span></div></div>
+<h1 class="body-heading" id="scanning">Scanning<a class="anchor-link glyphicon glyphicon-link" aria-hidden="true" href="#scanning"></a></h1><h2 class="body-heading" id="scanning-basics">Scanning Basics<a class="anchor-link glyphicon glyphicon-link" aria-hidden="true" href="#scanning-basics"></a></h2><p>When not connected, Bluetooth devices can either advertise their presence by transmitting advertisement packets or scan for nearby devices that are advertising. This process of scanning for devices is called <em>device discovery</em>.
+There are two types of scanning; active and passive. The difference is that an active scanner can send a scan request to request additional information from the advertiser, while a passive scanner can only receive data from advertising device. Note that the terms <em>discovery</em> and <em>scanning</em> may be used interchangeably.
+The figure below shows the sequence where the scanner sends a scan request to an advertiser during an advertising event.
+</p><div class="modal-pop" style="cursor:zoom-in;"><img src="resources/scanning_flowchart.png" alt="Imported" class="img-responsive"></div><p></p>
+<p>When it comes to the timing of a scan, there are a few parameters you need to get familiar with. Each of these parameters has a range dictated by the <a href="https://www.bluetooth.org/DocMan/handlers/DownloadDoc.ashx?doc_id=286439">Bluetooth Core Spec</a>.
+The Time Inter Frame Space(T_IFS) is the time interval between two consecutive packets on the same channel index and is set to 150us by the BLE specification.</p>
+<table class="table table-striped table-bordered">
+<thead>
+<tr>
+<th>Scan Parameter</th>
+<th>Description</th>
+<th>Range</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Scan Interval</td>
+<td>Interval between the start of two consecutive scan windows</td>
+<td>10ms to 10.24s</td>
+</tr>
+<tr>
+<td>Scan Window</td>
+<td>The duration in which the <span class="hinted" data-placement="auto top" data-toggle="tooltip" data-html="true" data-original-title="&lt;p&gt;The Link Layer is a layer in the controller, see the figure in the &lt;em&gt;Background&lt;/em&gt; section.&lt;/p&gt;
+">Link Layer</span> scans on one channel</td>
+<td>10ms to 10.24s</td>
+</tr>
+<tr>
+<td>Scan Duration</td>
+<td>The duration in which the device stays in the scanning state</td>
+<td>10ms to <span class="hinted" data-placement="auto top" data-toggle="tooltip" data-html="true" data-original-title="&lt;p&gt;Max value is 65534ms but if this value is set to 0, the device scans indefinitely&lt;/p&gt;
+">infinity</span></td>
+</tr>
+</tbody>
+</table>
+<p>Note that the order of the scanning channels are not configurable, the device will scan on channel 37 (2402 MHz), channel 38 (2426 MHz), and channel 39 (2480 MHz) respectively and in that order on every scanning interval for the length of time defined by the scanning window.
+The following diagram visually shows the scanning parameters:
+</p><div class="modal-pop" style="cursor:zoom-in;"><img src="resources/scanning_diagram.png" alt="Imported" class="img-responsive"></div><p></p>
+<div class="bs-callout bs-callout-default "><h4><span class="glyphicon glyphicon-question-sign gi-2x" style="vertical-align: middle; margin-right: 0.2em;"></span><span style="vertical-align: middle;">Which type of scanning does not transmit (TX) any packets, only receives (RX) advertisement packets?
+</span></h4>
+<p>Choose the correct answer(s).</p>
+<div class="quiz-toolbar"><div>
+<input type="checkbox" id="q5.14" class="answer-wrong" name="quiz-5" style="display:none;"><label for="q5.14" class="quiz-label " data-toggle="tooltip" data-html="true" data-container="body" data-placement="auto top" data-trigger="click" title="" data-original-title="&lt;p&gt; Hint: Active scanning allows sending scan requests.&lt;/p&gt;
+"> active scanning </label>
+<input type="checkbox" id="q5.15" class="answer-right" name="quiz-5" style="display:none;"><label for="q5.15" class="quiz-label ">passive scanning</label>
+</div></div>
+</div>
+<p>The following tasks will demonstrate scanning using the simple_central_cc2640r2lp_app project.</p>
+<h1 class="body-heading" id="scanning-task-1-ndash-change-scanning-parameters">Scanning Task 1 – Change Scanning Parameters<a class="anchor-link glyphicon glyphicon-link" aria-hidden="true" href="#scanning-task-1-ndash-change-scanning-parameters"></a></h1><p>In this task, we will scan continuously with the following scan parameters:</p>
+<ul>
+<li>Scan interval: 150 milliseconds(ms)</li>
+<li>Scan window:   150 milliseconds(ms)</li>
+<li>Scan duration: 5 seconds(s)</li>
+<li>Scan type:     Passive</li>
+</ul>
+<p>When setting the scan interval equal to the scan window the device will scan continuously. On the other hand, if the scan interval is larger than the scan window the device will duty-cycle scanning.</p>
+<p>If you haven't loaded the simple_central project into your device yet - now is the time! Build the stack library project first, then build and flash the app project. In simple_central.c, change the default scan parameters as shown below:</p>
+<div style="display:inline-block"><div style="display:block"><button type="button" class="btn btn-xs btn-warning float-right select-text" style="margin: 0; position: relative;" onclick="SelectText('codeBlock_11')">Select text</button></div><div class="pre-container"><pre><code id="codeBlock_11" class="lang-c hljs cpp"><span class="hljs-comment">// === SOLUTION [Add GAP discovery settings] ===</span>
+  <span class="hljs-comment">// Scan duration in ms</span>
+  <span class="hljs-preprocessor">#<span class="hljs-keyword">define</span> DEFAULT_SCAN_DURATION                 5000</span>
+  <span class="hljs-comment">// Scan interval in units of 0.625 ms</span>
+  <span class="hljs-preprocessor">#<span class="hljs-keyword">define</span> DEFAULT_SCAN_INTERVAL                 240 <span class="hljs-comment">//(240 * 0.625) = 150 ms</span></span>
+  <span class="hljs-comment">// Scan window in units of 0.625 ms</span>
+  <span class="hljs-preprocessor">#<span class="hljs-keyword">define</span> DEFAULT_SCAN_WINDOW                   240 <span class="hljs-comment">//(240 * 0.625) = 150 ms</span></span>
+  <span class="hljs-comment">// FALSE to use passive scan</span>
+  <span class="hljs-preprocessor">#<span class="hljs-keyword">define</span> DEFAULT_DISCOVERY_ACTIVE_SCAN         FALSE</span>
+<span class="hljs-comment">// ==== END SOLUTION ====</span>
+
+<span class="hljs-comment">// ...</span>
+
+<span class="hljs-function"><span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">SimpleCentral_init</span><span class="hljs-params">(<span class="hljs-keyword">void</span>)</span>
+</span>{
+<span class="hljs-comment">// ...</span>
+    <span class="hljs-comment">//Setup the Central GAPRole Profile.</span>
+    {
+    <span class="hljs-keyword">uint8_t</span> scanRes = DEFAULT_MAX_SCAN_RES;
+
+    GAPCentralRole_SetParameter(GAPCENTRALROLE_MAX_SCAN_RES, <span class="hljs-keyword">sizeof</span>(<span class="hljs-keyword">uint8_t</span>),
+                                &amp;scanRes);
+    }
+
+  <span class="hljs-comment">// Set GAP Parameters to set the discovery duration</span>
+  GAP_SetParamValue(TGAP_GEN_DISC_SCAN, DEFAULT_SCAN_DURATION);
+  GAP_SetParamValue(TGAP_LIM_DISC_SCAN, DEFAULT_SCAN_DURATION);
+
+<span class="hljs-comment">// === SOLUTION [Add GAP discovery settings] ===</span>
+  GAP_SetParamValue(TGAP_GEN_DISC_SCAN_INT, DEFAULT_SCAN_INTERVAL); <span class="hljs-comment">//period for one scan channel</span>
+  GAP_SetParamValue(TGAP_GEN_DISC_SCAN_WIND, DEFAULT_SCAN_WINDOW); <span class="hljs-comment">//active scanning time within interval</span>
+<span class="hljs-comment">// ==== END SOLUTION ====</span>
+
+  GGS_SetParameter(GGS_DEVICE_NAME_ATT, GAP_DEVICE_NAME_LEN,
+                  (<span class="hljs-keyword">void</span> *)attDeviceName);
+</code></pre><span class="code-title"><p><strong>simple_central.c :: SimpleCentral_init()</strong> – Configuring scan parameters</p>
+</span></div></div>
+<p>The above parameters are used to set up how the device will behave during the discovery process.
+If the application is scanning at a low duty cycle, it might take longer to receive the advertisement report
+thus also delaying connection to the peer device which can adversely affect user experience.
+Additionally, the following parameters can be configured when starting discovery:</p>
+<table class="table table-striped table-bordered">
+<thead>
+<tr>
+<th>Scan Parameter</th>
+<th>Default Value</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DEFAULT_DISCOVERY_MODE</td>
+<td>GAP_ADTYPE_FLAGS_GENERAL</td>
+<td>Choose between <span class="hinted" data-placement="auto top" data-toggle="tooltip" data-html="true" data-original-title="&lt;p&gt;see BT Core Spec V4.2 Vol. 3, Part C, Section 9.2.5 for more info on limited discovery procedure&lt;/p&gt;
+">limited</span>, general, or <span class="hinted" data-placement="auto top" data-toggle="tooltip" data-html="true" data-original-title="&lt;p&gt;no filter, discover both limited and general advertisers&lt;/p&gt;
+">all discoverable mode</span></td>
+</tr>
+<tr>
+<td>DEFAULT_DISCOVERY_ACTIVE_SCAN</td>
+<td>TRUE</td>
+<td>Choose between active and passive scanning</td>
+</tr>
+<tr>
+<td>DEFAULT_DISCOVERY_WHITE_LIST</td>
+<td>FALSE</td>
+<td>Choose to use white list or no <span class="hinted" data-placement="auto top" data-toggle="tooltip" data-html="true" data-original-title="&lt;p&gt;see description in expandable box below&lt;/p&gt;
+">white list</span></td>
+</tr>
+</tbody>
+</table>
+<p>These parameters are passed into <code>GAPCentralRole_StartDiscovery()</code> to start scanning when BTN2 is pressed.</p>
+<div style="display:inline-block"><div style="display:block"><button type="button" class="btn btn-xs btn-warning float-right select-text" style="margin: 0; position: relative;" onclick="SelectText('codeBlock_12')">Select text</button></div><div class="pre-container"><pre><code id="codeBlock_12" class="lang-c hljs cpp"><span class="hljs-function"><span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">SimpleCentral_handleKeys</span><span class="hljs-params">(<span class="hljs-keyword">uint8_t</span> shift, <span class="hljs-keyword">uint8_t</span> keys)</span>
+</span>{
+  <span class="hljs-comment">// ...</span>
+  <span class="hljs-keyword">if</span> (keys &amp; KEY_RIGHT)
+  {
+      <span class="hljs-comment">// Start or stop discovery</span>
+      <span class="hljs-comment">// ...</span>
+        <span class="hljs-keyword">if</span> (!scanningStarted)
+        {
+        <span class="hljs-comment">// ...</span>
+          GAPCentralRole_StartDiscovery(DEFAULT_DISCOVERY_MODE,
+                                        DEFAULT_DISCOVERY_ACTIVE_SCAN,
+                                        DEFAULT_DISCOVERY_WHITE_LIST);
+        }
+        <span class="hljs-comment">// === SOLUTION [Cancel discovery if enabled] ===</span>
+        <span class="hljs-keyword">else</span>
+        {
+          GAPCentralRole_CancelDiscovery();
+        }
+        <span class="hljs-comment">// ==== END SOLUTION ====</span>
+      <span class="hljs-comment">// ...</span>
+}
+</code></pre><span class="code-title"><p><strong>simple_central.c :: SimpleCentral_handleKeys()</strong> – Starting/stopping device discovery procedure</p>
+</span></div></div>
+<div class="bs-callout bs-callout-warning "><h4><span class="glyphicon glyphicon-exclamation-sign gi-2x" style="vertical-align: middle; margin-right: 0.2em;"></span><span style="vertical-align: middle;">Two Kinds of Discovery
+</span></h4>
+<p>Note that this discovery procedure to discover nearby devices is not to be confused with the <em>characteristic discovery</em> procedure which is usually called after a connection is established.</p>
+</div>
+<p>Note that the above parameters are used for general scanning. Different parameters are used for scanning after connection has been established. For example <code>TGAP_CONN_SCAN_INT</code> and <code>TGAP_CONN_SCAN_WIND</code> are used when scanning after a connection has been established.</p>
+<div class="panel-group">
+  <div class="panel panel-info">
+    <div class="panel-heading">
+      <h4 class="panel-title">
+        <a class="accordion-toggle collapsed" data-toggle="collapse" href="#expandable_-white-lists-"><p> White Lists</p>
+</a>
+      </h4>
+    </div>
+    <div id="expandable_-white-lists-" class="panel-collapse collapse">
+      <div class="panel-body"><p>If a set of devices are known (i.e. the device addresses are known), the application can use the white list to only involve those devices in the BLE procedures. The set of devices that the BLE controller uses for device filtering is called the <em>white list</em>. When scanning with white list enabled, the device will only return scan results for those devices in the white list. See BT Core V4.2 Vol 6, Part B, Section 4.3.3 for more information on scanner filter policy.</p>
+<p>To add devices to the white list, simply call the HCI_LE_AddWhiteListCmd() and pass in the device address and its type. For example, to add a device with public address of 0x001234567890 :</p>
+<div style="display:inline-block"><div style="display:block"><button type="button" class="btn btn-xs btn-warning float-right select-text" style="margin: 0; position: relative;" onclick="SelectText('codeBlock_13')">Select text</button></div><div class="pre-container"><pre><code id="codeBlock_13" class="lang-c hljs cpp"><span class="hljs-function"><span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">SimpleCentral_init</span><span class="hljs-params">(<span class="hljs-keyword">void</span>)</span>
+</span>{
+<span class="hljs-comment">// ...</span>
+  <span class="hljs-keyword">static</span> uint8 bdAddressPeer[<span class="hljs-number">6</span>] = {<span class="hljs-number">0x90</span>,<span class="hljs-number">0x78</span>,<span class="hljs-number">0x56</span>,<span class="hljs-number">0x34</span>,<span class="hljs-number">0x12</span>,<span class="hljs-number">0x00</span>};
+  HCI_LE_AddWhiteListCmd(ADDRMODE_PUBLIC, bdAddressPeer);
+<span class="hljs-comment">// ...</span>
+</code></pre><span class="code-title"><p>Adding a device to the white list</p>
+</span></div></div>
+<p>Note the device has only one white list, so manually modifying the white list is not a good idea. It would interfere with other white list operations, including the auto sync of white list during device pairing and bonding (if enabled).</p>
+</div>
+    </div>
+  </div>
+</div><h1 class="body-heading" id="scanning-task-2-ndash-print-scanning-results">Scanning Task 2 – Print scanning results<a class="anchor-link glyphicon glyphicon-link" aria-hidden="true" href="#scanning-task-2-ndash-print-scanning-results"></a></h1><p>Every time a device is discovered, a <code>GAP_DEVICE_INFO_EVENT</code> occurs. When scanning ends, a<code>GAP_DEVICE_DISCOVERY_EVENT</code> is sent to the application. When performing passive scanning, the device only receives BLE packets, it does not send any. On the other hand, in active scanning, the controller will request more information (a scan response packet) from the advertiser (after it receives an advertisement packet). The advertiser will then send additional data in the form of a scan response which gets passed to the scanner application.</p>
+<div class="bs-callout bs-callout-default "><h4><span class="glyphicon glyphicon-question-sign gi-2x" style="vertical-align: middle; margin-right: 0.2em;"></span><span style="vertical-align: middle;">After receiving which type of advertisement can an active scanner send a scan request?
+</span></h4>
+<p>Choose the correct answer(s).</p>
+<div class="quiz-toolbar"><div>
+<input type="checkbox" id="q6.16" class="answer-right" name="quiz-6" style="display:none;"><label for="q6.16" class="quiz-label ">Connectable undirected advertisement</label>
+<input type="checkbox" id="q6.17" class="answer-wrong" name="quiz-6" style="display:none;"><label for="q6.17" class="quiz-label " data-toggle="tooltip" data-html="true" data-container="body" data-placement="auto top" data-trigger="click" title="" data-original-title="&lt;p&gt; Hint: Only two of them are correct.&lt;/p&gt;
+">Connectable directed advertisement </label>
+<input type="checkbox" id="q6.18" class="answer-right" name="quiz-6" style="display:none;"><label for="q6.18" class="quiz-label ">Scannable undirected advertisement</label>
+<input type="checkbox" id="q6.19" class="answer-wrong" name="quiz-6" style="display:none;"><label for="q6.19" class="quiz-label ">Non-connectable undirected advertisement</label>
+</div></div>
+</div>
+<p>The device info is encapsulated in the <code>gapDeviceInfoEvent_t</code> structure. The following code demonstrates printing the received advertising data:</p>
+<div style="display:inline-block"><div style="display:block"><button type="button" class="btn btn-xs btn-warning float-right select-text" style="margin: 0; position: relative;" onclick="SelectText('codeBlock_14')">Select text</button></div><div class="pre-container"><pre><code id="codeBlock_14" class="lang-c hljs cpp"><span class="hljs-keyword">const</span> <span class="hljs-keyword">char</span> *AdvTypeStrings[] = {<span class="hljs-string">"Connectable undirected"</span>,<span class="hljs-string">"Connectable directed"</span>, <span class="hljs-string">"Scannable undirected"</span>, <span class="hljs-string">"Non-connectable undirected"</span>, <span class="hljs-string">"Scan response"</span>};
+<span class="hljs-comment">// ...</span>
+<span class="hljs-keyword">char</span> *Util_convertBytes2Str(<span class="hljs-keyword">uint8_t</span> *pData, <span class="hljs-keyword">uint8_t</span> length)
+{
+  <span class="hljs-keyword">uint8_t</span>     charCnt;
+  <span class="hljs-keyword">char</span>        hex[] = <span class="hljs-string">"0123456789ABCDEF"</span>;
+  <span class="hljs-keyword">static</span> <span class="hljs-keyword">char</span> str[(<span class="hljs-number">3</span>*<span class="hljs-number">31</span>)+<span class="hljs-number">1</span>];
+  <span class="hljs-keyword">char</span>        *pStr = str;
+
+  <span class="hljs-comment">//*pStr++ = '0';</span>
+  <span class="hljs-comment">//*pStr++ = 'x';</span>
+
+  <span class="hljs-keyword">for</span> (charCnt = <span class="hljs-number">0</span>; charCnt &lt; length; charCnt++)
+  {
+    *pStr++ = hex[*pData &gt;&gt; <span class="hljs-number">4</span>];
+    *pStr++ = hex[*pData++ &amp; <span class="hljs-number">0x0F</span>];
+    <span class="hljs-keyword">if</span>(!((charCnt+<span class="hljs-number">1</span>) &gt;= length)) {
+        *pStr++ = <span class="hljs-string">':'</span>;
+    }
+  }
+  pStr = NULL;
+
+  <span class="hljs-keyword">return</span> str;
+}
+<span class="hljs-comment">// ...</span>
+<span class="hljs-function"><span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">SimpleCentral_processRoleEvent</span><span class="hljs-params">(gapCentralRoleEvent_t *pEvent)</span>
+</span>{
+<span class="hljs-keyword">switch</span> (pEvent-&gt;gap.opcode)
+        {
+        <span class="hljs-comment">// ...</span>
+        <span class="hljs-keyword">case</span> GAP_DEVICE_INFO_EVENT:
+     {
+        <span class="hljs-comment">// ...</span>
+<span class="hljs-comment">// === SOLUTION [Print scan results] ===</span>
+        <span class="hljs-comment">//Print scan response data or advertising data</span>
+        <span class="hljs-keyword">if</span>(pEvent-&gt;deviceInfo.eventType == GAP_ADRPT_SCAN_RSP)
+        {
+            Display_print1(dispHandle, <span class="hljs-number">4</span>, <span class="hljs-number">0</span>, <span class="hljs-string">"ScanResponseAddr: %s"</span>,
+                           Util_convertBdAddr2Str(pEvent-&gt;deviceInfo.addr));
+
+            Display_print1(dispHandle, <span class="hljs-number">5</span>, <span class="hljs-number">0</span>, <span class="hljs-string">"ScanResponseData: %s"</span>,
+                           Util_convertBytes2Str(pEvent-&gt;deviceInfo.pEvtData,
+                           pEvent-&gt;deviceInfo.dataLen));
+        }
+        <span class="hljs-keyword">else</span>
+        {
+            Display_print1(dispHandle, <span class="hljs-number">6</span>, <span class="hljs-number">0</span>, <span class="hljs-string">"Advertising Addr: %s"</span>,
+                           Util_convertBdAddr2Str(pEvent-&gt;deviceInfo.addr));
+            Display_print1(dispHandle, <span class="hljs-number">7</span>, <span class="hljs-number">0</span>, <span class="hljs-string">"RSSI: %d"</span>, pEvent-&gt;deviceInfo.rssi );
+            Display_print1(dispHandle, <span class="hljs-number">8</span>, <span class="hljs-number">0</span>, <span class="hljs-string">"Advertising Type: %s"</span>,
+                           AdvTypeStrings[pEvent-&gt;deviceInfo.eventType]);
+            Display_print1(dispHandle, <span class="hljs-number">9</span>, <span class="hljs-number">0</span>, <span class="hljs-string">"Advertising Data: %s"</span>,
+                           Util_convertBytes2Str(pEvent-&gt;deviceInfo.pEvtData,
+                           pEvent-&gt;deviceInfo.dataLen));
+        }
+
+<span class="hljs-comment">// ==== END SOLUTION ====</span>
+<span class="hljs-comment">// ...</span>
+  }
+</code></pre><span class="code-title"><p><strong>simple_central.c :: SimpleCentral_processRoleEvent()</strong> – Adding functionality to print scan results</p>
+</span></div></div>
+<div class="bs-callout bs-callout-default "><h4><span class="glyphicon glyphicon-hand-right gi-2x" style="vertical-align: middle; margin-right: 0.2em;"></span><span style="vertical-align: middle;">Canceling Discovery
+</span></h4>
+<p>Note that when canceling discovery (by calling <code>GAPCentralRole_CancelDiscovery()</code>), the application will always return "0 devices found" in the <code>GAP_DEVICE_DISCOVERY_EVENT</code>.</p>
+</div>
+<h1 class="body-heading" id="scanning-task-3-ndash-scan-indefinitely">Scanning Task 3 – Scan Indefinitely<a class="anchor-link glyphicon glyphicon-link" aria-hidden="true" href="#scanning-task-3-ndash-scan-indefinitely"></a></h1><p>When the application needs to scan for nearby devices at all times, i.e. always be in the scanning state, set <code>DEFAULT_SCAN_DURATION</code> to 0.
+<br> <strong>Note that even in indefinite scanning, the number of scanned results will still be limited by <code>DEFAULT_MAX_SCAN_RES</code>.</strong></p>
+<div style="display:inline-block"><div style="display:block"><button type="button" class="btn btn-xs btn-warning float-right select-text" style="margin: 0; position: relative;" onclick="SelectText('codeBlock_15')">Select text</button></div><div class="pre-container"><pre><code id="codeBlock_15" class="lang-c hljs cpp"><span class="hljs-comment">// === SOLUTION [Scan indefinitely] ===</span>
+<span class="hljs-comment">// Scan duration in ms</span>
+<span class="hljs-preprocessor">#<span class="hljs-keyword">define</span> DEFAULT_SCAN_DURATION                 0</span>
+<span class="hljs-comment">// ...</span>
+<span class="hljs-function"><span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">SimpleCentral_init</span><span class="hljs-params">(<span class="hljs-keyword">void</span>)</span>
+</span>{
+<span class="hljs-comment">// ...</span>
+  GAP_SetParamValue(TGAP_GEN_DISC_SCAN, DEFAULT_SCAN_DURATION);
+  GAP_SetParamValue(TGAP_LIM_DISC_SCAN, DEFAULT_SCAN_DURATION);
+
+<span class="hljs-comment">// ==== END SOLUTION ====</span>
+</code></pre><span class="code-title"><p><strong>simple_central.c :: SimpleCentral_init()</strong> – Configuring scan duration to scan indefinitely.</p>
+</span></div></div>
+<div class="bs-callout bs-callout-info "><h4><span class="glyphicon glyphicon-info-sign gi-2x" style="vertical-align: middle; margin-right: 0.2em;"></span><span style="vertical-align: middle;">Note
+</span></h4>
+<p>Be mindful that if scanning indefinitely, a <code>GAP_DEVICE_DISCOVERY_EVENT</code> will never be received since the scanning process never ends.
+The exception is when the <code>GAPCentralRole_CancelDiscovery()</code> API is called to cancel the discovery. Regardless of the number of devices the scanner has discovered, the application will return "0 Devices Found".</p>
+</div>
+<h2 class="body-heading" id="enable-unlimited-scanning">Enable Unlimited Scanning<a class="anchor-link glyphicon glyphicon-link" aria-hidden="true" href="#enable-unlimited-scanning"></a></h2><p>Certain applications require the ability to scan for an unknown number (i.e. unlimited) of devices. The Unlimited Scanning feature was developed for this reason. When enabling the unlimited scan feature, the stack passes the scan result to the application whenever a broadcaster/advertiser device is found. The BLE-Stack will not save the result in the stack and thus further save RAM usage. The application layer will then receive the scan result one by one under GAP_DEVICE_INFO_EVENT state.</p>
+<p>To enable this feature, simply set <code>ENABLE_UNLIMITED_SCAN_RES</code> to TRUE. This allows scanning without an upper limit of discovered devices.</p>
+<p>Similar to indefinite scanning, the number of scanned results is governed by <code>DEFAULT_MAX_SCAN_RES</code> as shown below.</p>
+<table class="table table-striped table-bordered">
+<thead>
+<tr>
+<th>Value</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>Enable unlimited scan. Scan results are only available under GAP_DEVICE_INFO_EVENT</td>
+</tr>
+<tr>
+<td>~1-256</td>
+<td>Maximum number of scan reports to application. Scan results are available under both GAP_DEVICE_INFO_EVENT and GAP_DEVICE_DISCOVERY_EVENT</td>
+</tr>
+</tbody>
+</table>
+<h2 class="body-heading" id="filter-duplicate-advertisers">Filter Duplicate Advertisers<a class="anchor-link glyphicon glyphicon-link" aria-hidden="true" href="#filter-duplicate-advertisers"></a></h2><p>For some applications, processing multiple advertisements by the same peer device can be useful. E.g. when collecting information from a beacon that updates its advertisement data frequently. By default, the scanning device will filter advertising data. To turn off the filter for duplicate advertisers, use the following API:</p>
+<div style="display:inline-block"><div style="display:block"><button type="button" class="btn btn-xs btn-warning float-right select-text" style="margin: 0; position: relative;" onclick="SelectText('codeBlock_16')">Select text</button></div><div class="pre-container"><pre><code id="codeBlock_16" class="lang-c hljs cpp">GAP_SetParamValue(TGAP_FILTER_ADV_REPORTS, FALSE);
+</code></pre><span class="code-title"><p>Configuring duplicate filter for advertisements.</p>
+</span></div></div>
+<p>This will enable the controller to receive all the advertisement packets it sees over the air, and send it to the application for further processing.</p>
+<div class="bs-callout bs-callout-danger "><h4><span class="glyphicon glyphicon-exclamation-sign gi-2x" style="vertical-align: middle; margin-right: 0.2em;"></span><span style="vertical-align: middle;">Caution
+</span></h4>
+<p>Note that when filtering is turned on, the scanner filters advertisements by device address only. This means that even if the advertising data is changed, it will not get passed to the application.</p>
+</div>
+<h1 class="body-heading" id="example-uart-output-from-tasks-1-3">Example UART Output from Tasks 1-3<a class="anchor-link glyphicon glyphicon-link" aria-hidden="true" href="#example-uart-output-from-tasks-1-3"></a></h1><p>In the figure below, 2 serial COM ports emulators are opened in CCS which show the printed result of simple_peripheral and simple_central due to the above changes in both Scanning Task 1-3 and Advertising Task 1-3.</p>
+<p>Once the updated projects are loaded, remember to press the right button (BTN2) on the central device to start scanning.</p>
+<div style="display:inline-block"><div style="display:block"><button type="button" class="btn btn-xs btn-warning float-right select-text" style="margin: 0; position: relative;" onclick="SelectText('codeBlock_17')">Select text</button></div><div class="pre-container"><pre><code id="codeBlock_17" class="lang-c hljs cpp">  <span class="hljs-keyword">static</span> uint8 bdAddressPeer[<span class="hljs-number">6</span>] = {<span class="hljs-number">0x6A</span>,<span class="hljs-number">0x5C</span>,<span class="hljs-number">0xAA</span>,<span class="hljs-number">0x2D</span>,<span class="hljs-number">0x07</span>,<span class="hljs-number">0x98</span>};
+  HCI_LE_AddWhiteListCmd(ADDRTYPE_PUBLIC, bdAddressPeer);
+</code></pre><span class="code-title"><p>Enable whitelist on simple_central.</p>
+</span></div></div>
+<p></p><div class="modal-pop" style="cursor:zoom-in;"><img src="resources/advertiser_scanner_example_output.png" alt="Imported" class="img-responsive"></div><p></p>
+<h1 class="body-heading" id="miscellaneous-guidelines">Miscellaneous Guidelines<a class="anchor-link glyphicon glyphicon-link" aria-hidden="true" href="#miscellaneous-guidelines"></a></h1><h2 class="body-heading" id="choosing-advertising-interval-fast-or-slow-">Choosing advertising interval: Fast or slow?<a class="anchor-link glyphicon glyphicon-link" aria-hidden="true" href="#choosing-advertising-interval-fast-or-slow-"></a></h2><p>The advertising interval should be set based on use case. Both fast or slow advertising have pros and cons:</p>
+<ul>
+<li>Slow advertising: higher advertising interval, lower power consumption, low probability of short discovery time.</li>
+<li>Fast advertising: lower advertising interval, higher power consumption, high probability of short discovery time.</li>
+</ul>
+<h2 class="body-heading" id="optimizing-scanning-how-to-get-data-fast-">Optimizing Scanning: How to get data fast?<a class="anchor-link glyphicon glyphicon-link" aria-hidden="true" href="#optimizing-scanning-how-to-get-data-fast-"></a></h2><ul>
+<li>In a time-constrained application, when the user needs to receive the data as fast as possible, make sure that scanning window is more than the advertising interval + 10ms to guarantee discovery. (The 10 ms extra account for the 0 ms to 10 ms of pseudo-random delay in between each advertising event, assuming no interference.)
+Following this rule will increase the chance of receiving the advertising packet on the first scan.</li>
+</ul>
+<h2 class="body-heading" id="scanning-in-multirole-configurations-any-limitations-">Scanning in multirole configurations: Any limitations?<a class="anchor-link glyphicon glyphicon-link" aria-hidden="true" href="#scanning-in-multirole-configurations-any-limitations-"></a></h2><ul>
+<li>Note that the scanning during a connection uses different set of scan parameters(such as <code>TGAP_CONN_SCAN_INT</code>) than outside a connection(such as <code>TGAP_GEN_DISC_SCAN_INT</code>).</li>
+<li>Scanning is allowed in most multirole configurations, however, scanning while initiating connection is not allowed. (You cannot do multiple simultaneous scan procedures on one single radio.)</li>
+<li>Many BLE procedures can be running simultaneously on the same device, but what happens when their timings collide? The controller will automatically interleave advertising/connection events with scanning when operating in a multirole configuration.</li>
+</ul>
+<h1 class="body-heading" id="references">References<a class="anchor-link glyphicon glyphicon-link" aria-hidden="true" href="#references"></a></h1><p><a href="http://dev.ti.com/tirex/#/?link=Software%2FSimpleLink%20CC2640R2%20SDK%2FDocuments%2FBLE-Stack%2FBLE-Stack%20User's%20Guide">TI BLE-Stack User's Guide</a></p>
+<p><a href="https://www.bluetooth.com/specifications/adopted-specifications">Bluetooth Low Energy Core Specification</a></p>
+<!-- Actual references -->
+<div align="center" style="margin-top: 4em; font-size: smaller;">
+<a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/4.0/"><img alt="Creative Commons License" style="border-width:0" src="../../../web_support/cc_license_icon.png"></a><br>This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/4.0/">Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International License</a>.</div>
+
+</div><div class="col-xs-4 col-sm-2 sidebar-offcanvas bs-docs-sidebar hidden-print" id="sidebar-overview"><ul class="nav nav-stacked fixed" id="sidebar"><li><a href="#introduction">Introduction</a></li><li><a href="#prerequisites">Prerequisites</a><ul class="nav nav-stacked"><ul class="nav nav-stacked"><li><a href="#completed-material">Completed material</a></li><li><a href="#software-for-desktop-development">Software for desktop development</a></li><li><a href="#hardware">Hardware</a></li><li><a href="#recommended-reading">Recommended reading</a></li></ul></ul></li><li><a href="#getting-started-ndash-desktop">Getting started – Desktop</a><ul class="nav nav-stacked"><li><a href="#install-the-software">Install the software</a></li><li><a href="#modify-load-the-software">Modify/Load the software</a></li></ul></li><li><a href="#background">Background</a></li><li><a href="#advertising">Advertising</a><ul class="nav nav-stacked"><li><a href="#advertising-basics">Advertising Basics</a></li></ul></li><li><a href="#advertising-task-1-ndash-change-advertising-parameters">Advertising Task 1 – Change Advertising Parameters</a></li><li><a href="#advertising-task-2-ndash-change-the-advertising-data">Advertising Task 2 – Change the Advertising Data</a></li><li><a href="#advertising-task-3-ndash-change-filter-policy">Advertising Task 3 – Change Filter Policy</a></li><li><a href="#scanning">Scanning</a><ul class="nav nav-stacked"><li><a href="#scanning-basics">Scanning Basics</a></li></ul></li><li><a href="#scanning-task-1-ndash-change-scanning-parameters">Scanning Task 1 – Change Scanning Parameters</a></li><li><a href="#scanning-task-2-ndash-print-scanning-results">Scanning Task 2 – Print scanning results</a></li><li><a href="#scanning-task-3-ndash-scan-indefinitely">Scanning Task 3 – Scan Indefinitely</a><ul class="nav nav-stacked"><li><a href="#enable-unlimited-scanning">Enable Unlimited Scanning</a></li><li><a href="#filter-duplicate-advertisers">Filter Duplicate Advertisers</a></li></ul></li><li><a href="#example-uart-output-from-tasks-1-3">Example UART Output from Tasks 1-3</a></li><li><a href="#miscellaneous-guidelines">Miscellaneous Guidelines</a><ul class="nav nav-stacked"><li><a href="#choosing-advertising-interval-fast-or-slow-">Choosing advertising interval: Fast or slow?</a></li><li><a href="#optimizing-scanning-how-to-get-data-fast-">Optimizing Scanning: How to get data fast?</a></li><li><a href="#scanning-in-multirole-configurations-any-limitations-">Scanning in multirole configurations: Any limitations?</a></li></ul></li><li><a href="#references">References</a></li></ul></div></div></div></div>
+
+
+
+
+<link rel="stylesheet" href="../../../web_support/highlight/styles/zenburn.css">
+<script src="../../../web_support/strapdown/vendor/jquery-1.11.2.min.js"></script>
+<script src="../../../web_support/strapdown/vendor/bootstrap.min.js"></script>
+<script src="../../../web_support/highlight/highlight.pack.js"></script>
+<script type="text/javascript">document.isPreRendered = true;</script><script src="../../../web_support/strapdown/v/0.2/strapdown.js"></script>      <div class="modal" id="imagemodal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">        <div class="vertical-alignment-helper">          <div class="modal-dialog vertical-align-center">             <div class="modal-dialog">               <div class="modal-content" style="margin-left: auto;margin-right: auto;">                 <div class="modal-body">                   <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">×</span><span class="sr-only">Close</span></button>                   <img src="" class="imagepreview img-responsive">                 </div>              </div>            </div>          </div>        </div>      </div>
+
+
+</body></html>
